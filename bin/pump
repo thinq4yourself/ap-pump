@@ -1,0 +1,135 @@
+#!/usr/bin/env node
+
+// -*- mode: javascript -*-
+
+// pump.io
+//
+// entry point activity pump application
+//
+// Copyright 2011-2012, E14N https://e14n.com/
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+var cluster = require("cluster"),
+    os = require("os"),
+    fs = require("fs"),
+    path = require("path"),
+    Logger = require("bunyan"),
+    _ = require("underscore"),
+    argv = require("optimist")
+        .usage("Usage: $0 -c <configfile>")
+        .alias("c", "config")
+        .describe("c", "Configuration file (default: /etc/pump.io.json and ~/.pump.io.json)")
+        .argv,
+    Dispatch = require("../lib/dispatch"),
+    makeApp = require("../lib/app").makeApp;
+
+// We first get config files, then launch some cluster apps
+
+var main = function() {
+    var config = getConfig(argv.c);
+    launchApps(config);
+};
+
+// Gets the configuration vars for this server from config files
+
+var getConfig = function(filename) {
+    var files,
+        config = {},
+        i,
+        raw,
+        parsed;
+
+    if (filename) {
+        files = [filename];
+    } else {
+        files = ['/etc/pump.io.json',
+                 path.join(process.env.HOME, ".pump.io.json")];
+    }   
+
+    // This is all sync
+    for (i = 0; i < files.length; i++) {
+        if (fs.existsSync(files[i])) {
+            raw = fs.readFileSync(files[i]);
+            try {
+                parsed = JSON.parse(raw);
+                _.extend(config, parsed);
+            } catch (err) {
+                console.log(err);
+                process.exit(1);
+            }
+        }
+    }
+
+    return config;
+};
+
+// Launch apps
+
+var launchApps = function(config) {
+    var cnt,
+        i,
+        unclustered = ["memory", "disk", "leveldb"],
+        log = setupLog(config);
+
+    if (_(config).has("children")) {
+        cnt = config.children;
+    } else if (_(config).has("driver") && unclustered.indexOf(config.driver) !== -1) {
+        cnt = 1;
+    } else {
+        cnt = Math.max(os.cpus().length - 1, 1);
+    }
+
+    // Useful for some processes in each worker
+    config.workers = cnt;
+
+    if (cluster.isMaster) {
+
+        Dispatch.start(log);
+
+        for (i = 0; i < cnt; i++) {
+            cluster.fork();
+        }
+    } else {
+        makeApp(config, function(err, app) {
+            if (err) {
+                console.log(err);
+                process.exit(1);
+            } else {
+                app.run(function(err) {});
+            }
+        });
+    }
+};
+
+// Set up a Bunyan logger that the dispatch code can send to
+
+var setupLog = function(config) {
+
+    var log,
+        logParams = {
+            name: "pump.io"
+        };
+
+    if (config.logfile) {
+        logParams.streams = [{path: config.logfile}];
+    } else if (config.nologger) {
+        logParams.streams = [{path: "/dev/null"}];
+    } else {
+        logParams.streams = [{stream: process.stderr}];
+    }
+
+    return new Logger(logParams);
+};
+
+main();
