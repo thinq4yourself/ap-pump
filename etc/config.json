@@ -1,0 +1,17 @@
+{
+    "driver":  "redis",
+    "params":  {"host":"localhost","port":6379},
+    "secret":  "dQMbzq4nzu011h5aS2ui37AtkZN3AMSA",
+    "noweb":  false,
+    "site":  "ActivPrayer",
+    "owner":  "ActivPrayer",
+    "ownerURL":  "http://ActivPrayer.org",
+    "port":  80,
+    "hostname":  "",
+    "address":  "",
+    "nologger":  false,
+    "serverUser":  "ubuntu",
+    "uploaddir": "uploads",
+    "debugClient": false,
+    "firehose": "ofirehose.example"
+}

@@ -29,7 +29,7 @@ var cluster = require("cluster"),
     argv = require("optimist")
         .usage("Usage: $0 -c <configfile>")
         .alias("c", "config")
-        .describe("c", "Configuration file (default: /etc/pump.io.json and ~/.pump.io.json)")
+        .describe("c", "Configuration file (default: /etc/config.json and ~/.pump.io.json)")
         .argv,
     Dispatch = require("../lib/dispatch"),
     makeApp = require("../lib/app").makeApp;
@@ -53,7 +53,7 @@ var getConfig = function(filename) {
     if (filename) {
         files = [filename];
     } else {
-        files = ['./etc/pump.io.json',
+        files = ['./etc/config.json',
                  //path.join(process.env.HOME, ".pump.io.json")];
                  '/etc/pump.io.json')];
     }   
